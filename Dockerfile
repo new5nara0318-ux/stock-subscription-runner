@@ -1,12 +1,18 @@
-FROM node:14-alpine
+FROM python:3.9-slim
 
 WORKDIR /app
 
-COPY package.json ./
-RUN npm install -g serve
+# Install ffmpeg (required by yt-dlp)
+RUN apt-get update && apt-get install -y ffmpeg && rm -rf /var/lib/apt/lists/*
 
+# Install Python dependencies
+COPY requirements.txt ./
+RUN pip install --no-cache-dir -r requirements.txt
+
+# Copy application files
+COPY server.py ./
 COPY index.html ./
 
-EXPOSE 8080
+EXPOSE 5050
 
-CMD ["serve", "-s", ".", "-l", "8080"]
+CMD ["python", "server.py"]

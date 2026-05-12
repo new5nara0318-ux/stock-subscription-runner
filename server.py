@@ -1,9 +1,28 @@
 from flask import Flask, request, jsonify, send_from_directory
 from flask_cors import CORS
 import subprocess, tempfile, shutil, os, re, json, urllib.request
+import threading, time
 
 app = Flask(__name__, static_folder='.')
 CORS(app)
+
+# ── 셀프 핑 (렌더 슬립 방지) ──────────────────────────
+RENDER_URL = os.environ.get('RENDER_EXTERNAL_URL', '')
+
+def self_ping():
+    if not RENDER_URL:
+        return
+    url = RENDER_URL.rstrip('/') + '/ping'
+    while True:
+        time.sleep(600)  # 10분마다
+        try:
+            urllib.request.urlopen(url, timeout=10)
+            print(f'[핑] 셀프 핑 성공: {url}')
+        except Exception as e:
+            print(f'[핑] 셀프 핑 실패: {e}')
+
+threading.Thread(target=self_ping, daemon=True).start()
+# ─────────────────────────────────────────────────────
 
 @app.route('/')
 def index():
@@ -11,6 +30,10 @@ def index():
 
 @app.route('/ping')
 def ping():
+    return jsonify({"status": "ok"})
+
+@app.route('/health')
+def health():
     return jsonify({"status": "ok"})
 
 @app.route('/videos')

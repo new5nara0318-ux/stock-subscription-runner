@@ -298,18 +298,6 @@
         </div>
     </div>
     
-    <div class="modal" id="learningModal">
-        <div class="modal-content">
-            <h2>🔄 채널 학습 중...</h2>
-            <div class="spinner"></div>
-            <div class="learning-info">
-                <div class="current" id="currentChannel">-</div>
-                <div style="color: #888; margin-top: 5px;" id="learningCountDisplay">학습 중</div>
-            </div>
-            <p id="learningStatus" style="color: #aaa; font-size: 14px;">유튜브 영상 분석 중...</p>
-            <div style="margin-top: 15px; font-size: 12px; color: #666;" id="executionMode">실행 모드: 서버</div>
-        </div>
-    </div>
 
     <script>
         // 채널 데이터
@@ -345,6 +333,7 @@
             learned: [],
             learning: null,
             currentStep: 0,
+            learningStatus: '',
             logs: [],
             apiKey: '',
             mode: 'server',
@@ -475,6 +464,9 @@
                     `;
                 }).join('');
                 
+                // 학습 중 상태 텍스트
+                const learningStatusText = state.learningStatus || '';
+
                 return `
                     <div class="${cardClass}" data-id="${ch.id}">
                         <input type="checkbox" 
@@ -485,14 +477,11 @@
                         >
                         <div class="channel-info">
                             <div class="channel-name">${ch.name}</div>
-                            <div class="channel-desc">${ch.desc}</div>
-                        </div>
-                        <div class="steps-indicator">
-                            ${stepsHtml}
+                            <div class="channel-desc">${isLearning ? `<span style="color:#4CAF50;font-size:11px;">⚙️ ${learningStatusText}</span>` : ch.desc}</div>
                         </div>
                         <div class="channel-progress">
                             <div class="progress-header">
-                                <span>진행률</span>
+                                <span>${isLearning ? learningStatusText : (isLearned ? '완료' : '대기')}</span>
                                 <span class="percent">${progressPercent}%</span>
                             </div>
                             <div class="mini-bar">
@@ -500,6 +489,7 @@
                             </div>
                         </div>
                         <div class="channel-status ${statusClass}">${statusText}</div>
+                        ${isLearned ? `<button onclick="downloadTxt(${ch.id})" style="padding:5px 10px;background:#2196F3;border:none;border-radius:6px;color:#fff;cursor:pointer;font-size:12px;white-space:nowrap;">📥 txt</button>` : ''}
                     </div>
                 `;
             }).join('');
@@ -647,15 +637,13 @@
 
         // 채널 학습
         async function learnChannel(channel) {
-            const mode = state.mode;
             addLog(`━━━━━━━━━━━━━━━━━━━━━━━━━━━`, 'info');
             addLog(`${channel.name} 학습 시작`, 'loading');
 
             try {
-                // 1단계: 영상 목록 (25%)
+                // 1단계: 영상 목록
                 state.currentStep = 0;
-                setModalText('currentChannel', channel.name);
-                setModalText('learningStatus', '영상 목록 가져오는 중...');
+                state.learningStatus = '영상 목록 가져오는 중...';
                 renderChannels();
 
                 const videos = await fetchChannelVideos(channel.channelId);
@@ -663,54 +651,51 @@
                     addLog(`❌ 영상 없음 또는 API 오류`, 'error');
                     state.learning = null;
                     state.currentStep = 0;
+                    state.learningStatus = '';
                     renderChannels();
                     return false;
                 }
 
                 // 2단계: 영상별 자막 추출
                 state.currentStep = 1;
-                renderChannels();
                 addLog(`📹 총 ${videos.length}개 영상 자막 추출 시작`, 'info');
 
                 const subtitles = {};
                 for (let i = 0; i < videos.length; i++) {
                     const v = videos[i];
-                    setModalText('learningStatus', `자막 추출 중... (${i + 1}/${videos.length})`);
-                    setModalText('currentChannel', `${channel.name} - ${v.title.substring(0, 20)}`);
+                    state.learningStatus = `자막 추출 중 ${i + 1}/${videos.length}`;
+                    renderChannels();
                     const text = await fetchSubtitle(v.videoId, v.title);
                     if (text) subtitles[v.videoId] = { title: v.title, text };
                 }
 
-                // 3단계: 저장 (75%)
+                // 3단계: 저장
                 state.currentStep = 2;
-                setModalText('learningStatus', '데이터 저장 중...');
+                state.learningStatus = '저장 중...';
                 renderChannels();
 
                 const successCount = Object.keys(subtitles).length;
                 addLog(`💾 자막 ${successCount}/${videos.length}개 추출 완료`, successCount > 0 ? 'success' : 'warning');
 
-                // 로컬스토리지에 저장
-                const saveKey = `subtitles_ch_${channel.id}`;
-                localStorage.setItem(saveKey, JSON.stringify(subtitles));
+                localStorage.setItem(`subtitles_ch_${channel.id}`, JSON.stringify(subtitles));
 
-                // 4단계: 완료 (100%)
+                // 완료
                 state.currentStep = 3;
-                renderChannels();
-                await sleep(300);
-
                 state.learned.push(channel.id);
                 state.learning = null;
                 state.currentStep = 0;
+                state.learningStatus = '';
                 saveState();
 
-                addLog(`✅ ${channel.name} 학습 완료! (${successCount}개 자막 저장)`, 'success');
+                addLog(`✅ ${channel.name} 학습 완료! (${successCount}개 자막)`, 'success');
                 renderChannels();
                 return true;
 
             } catch (error) {
-                addLog(`❌ ${channel.name} 학습 실패: ${error.message}`, 'error');
+                addLog(`❌ ${channel.name} 실패: ${error.message}`, 'error');
                 state.learning = null;
                 state.currentStep = 0;
+                state.learningStatus = '';
                 renderChannels();
                 return false;
             }
@@ -719,47 +704,50 @@
         // 학습 시작
         async function startLearning() {
             if (state.selected.length === 0) return;
-            
-            // API 키 저장
-            state.apiKey = document.getElementById('apiKey').value;
+            state.apiKey = document.getElementById('apiKey').value.trim();
             saveState();
-            
-            const modal = document.getElementById('learningModal');
-            document.getElementById('executionMode').textContent = 
-                `실행 모드: ${state.mode === 'server' ? '🌐 서버실행' : '💻 내컴실행'} | 서버학습: ${state.serverEnabled ? 'ON' : 'OFF'}`;
-            modal.classList.add('show');
-            await sleep(100); // 모달이 DOM에 완전히 렌더된 후 진행
-            
+
             const channelsToLearn = state.selected.filter(id => !state.learned.includes(id));
             const total = channelsToLearn.length;
-            
+            addLog(`▶ 학습 시작: ${total}개 채널`, 'info');
+
             for (let i = 0; i < channelsToLearn.length; i++) {
                 const chId = channelsToLearn[i];
                 const channel = channels.find(c => c.id === chId);
                 if (!channel) continue;
-                
-                // 몇 번째/전체 표시
-                setModalText('learningCountDisplay', `${i + 1} / ${total} 번째 학습 중`);
-                
+
                 state.learning = chId;
                 state.currentStep = 0;
                 renderChannels();
-                
-                const success = await learnChannel(channel);
-                
-                if (success) {
-                    addLog(`📊 진행률: ${state.learned.length}/${channels.length} 채널 완료`, 'info');
-                }
-                
-                await sleep(500);
+                updateLearnButton();
+
+                addLog(`[${i+1}/${total}] ${channel.name} 시작`, 'loading');
+                await learnChannel(channel);
+                await sleep(300);
             }
-            
+
             state.selected = [];
-            modal.classList.remove('show');
             renderChannels();
             updateLearnButton();
-            
             addLog(`🎉 전체 학습 완료! (${state.learned.length}개 채널)`, 'success');
+        }
+
+        // txt 다운로드
+        function downloadTxt(channelId) {
+            const channel = channels.find(c => c.id === channelId);
+            const data = localStorage.getItem(`subtitles_ch_${channelId}`);
+            if (!data) { addLog('저장된 자막 없음', 'warning'); return; }
+            const subtitles = JSON.parse(data);
+            let content = `=== ${channel.name} 자막 모음 ===\n추출일: ${new Date().toLocaleString('ko-KR')}\n\n`;
+            for (const [videoId, info] of Object.entries(subtitles)) {
+                content += `\n▶ ${info.title}\nhttps://youtu.be/${videoId}\n${'─'.repeat(40)}\n${info.text}\n\n`;
+            }
+            const blob = new Blob([content], { type: 'text/plain;charset=utf-8' });
+            const a = document.createElement('a');
+            a.href = URL.createObjectURL(blob);
+            a.download = `${channel.name}_자막.txt`;
+            a.click();
+            addLog(`📥 ${channel.name} txt 다운로드됨`, 'success');
         }
 
         // 유틸리티

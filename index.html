@@ -244,8 +244,11 @@
             </div>
             <div class="setting-row">
                 <div class="input-group" style="flex: 2;">
-                    <label>YouTube API 키 (선택 - 없으면 시뮬레이션)</label>
-                    <input type="password" id="apiKey" placeholder="AIza... (없으면 시뮬레이션 모드)">
+                    <label>YouTube API 키</label>
+                    <div style="display:flex; gap:8px;">
+                        <input type="text" id="apiKey" placeholder="AIza..." style="flex:1; font-family:monospace; font-size:12px;">
+                        <button onclick="clearApiKey()" style="padding:8px 12px; background:#555; border:none; border-radius:8px; color:#fff; cursor:pointer; white-space:nowrap;">🗑️ 초기화</button>
+                    </div>
                 </div>
                 <div class="input-group" style="flex: 1;">
                     <label>실행 모드</label>
@@ -348,6 +351,14 @@
             serverEnabled: true
         };
 
+        // API 키 초기화
+        function clearApiKey() {
+            state.apiKey = '';
+            document.getElementById('apiKey').value = '';
+            saveState();
+            addLog('API 키 초기화됨 - 다시 붙여넣기 하세요', 'warning');
+        }
+
         // 저장된 상태 로드
         function loadState() {
             const saved = localStorage.getItem(STORAGE_KEY);
@@ -355,7 +366,9 @@
                 const parsed = JSON.parse(saved);
                 state.learned = parsed.learned || [];
                 state.logs = parsed.logs || [];
-                state.apiKey = parsed.apiKey || '';
+                // API 키 유효성 검사 (AIza로 시작하고 39자여야 함)
+                const savedKey = parsed.apiKey || '';
+                state.apiKey = (savedKey.startsWith('AIza') && savedKey.length < 100) ? savedKey : '';
                 state.mode = parsed.mode || 'server';
                 state.serverEnabled = parsed.serverEnabled !== undefined ? parsed.serverEnabled : true;
             }

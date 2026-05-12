@@ -11,7 +11,7 @@ jobs:
     steps:
       - name: Ping Render Server
         run: |
-          STATUS=$(curl -s -o /dev/null -w "%{http_code}" ${{ secrets.RENDER_URL }}/health)
+          STATUS=$(curl -s -o /dev/null -w "%{http_code}" ${{ secrets.RENDER_URL }}/ping)
           echo "응답코드: $STATUS"
           if [ "$STATUS" = "200" ]; then
             echo "✅ 서버 정상"

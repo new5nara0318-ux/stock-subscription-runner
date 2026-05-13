@@ -229,16 +229,22 @@ function saveState() {
 function loadState() {
   const saved = localStorage.getItem(STORAGE_KEY);
   if (saved) {
-    const p = JSON.parse(saved);
-    state.channels = p.channels || DEFAULT_CHANNELS;
-    state.learned = (p.learned || []).map(Number);
-    state.vidCounts = p.vidCounts || {};
-    state.logs = p.logs || [];
-    const k = p.apiKey || '';
-    state.apiKey = (k.startsWith('AIza') && k.length < 100) ? k : '';
-    state.serverEnabled = p.serverEnabled !== undefined ? p.serverEnabled : true;
-    state.typeFilter = p.typeFilter || {shorts:true, video:true, live:true};
-    state.nextId = p.nextId || 13;
+    try {
+      const p = JSON.parse(saved);
+      state.channels = (p.channels && p.channels.length) ? p.channels : [...DEFAULT_CHANNELS];
+      // learned는 반드시 숫자 배열, 이상한 값 전부 제거
+      state.learned = (p.learned || []).map(Number).filter(n => !isNaN(n) && n > 0 && n < 9999);
+      state.vidCounts = p.vidCounts || {};
+      state.logs = p.logs || [];
+      const k = (p.apiKey || '').trim();
+      state.apiKey = (k.startsWith('AIza') && k.length < 100) ? k : '';
+      state.serverEnabled = p.serverEnabled !== undefined ? p.serverEnabled : true;
+      state.typeFilter = p.typeFilter || {shorts:true, video:true, live:true};
+      state.nextId = p.nextId || 13;
+    } catch(e) {
+      console.error('상태 로드 실패, 초기화:', e);
+      state.channels = [...DEFAULT_CHANNELS];
+    }
   } else {
     state.channels = [...DEFAULT_CHANNELS];
   }
@@ -633,11 +639,22 @@ function downloadTxt(chId) {
 
 // ── 초기화 ────────────────────────────────────────
 function resetAll() {
-  if (!confirm('모든 학습 기록을 초기화하시겠습니까?')) return;
-  state.learned = [];
-  state.selected = [];
-  state.vidCounts = {};
-  state.logs = [];
+  const choice = confirm('전체 초기화: 확인\n학습기록만 초기화: 취소');
+  if (choice) {
+    // 전체 초기화
+    localStorage.removeItem(STORAGE_KEY);
+    state.channels = [...DEFAULT_CHANNELS];
+    state.learned = [];
+    state.selected = [];
+    state.vidCounts = {};
+    state.logs = [];
+    state.nextId = 13;
+  } else {
+    // 학습기록만 초기화
+    state.learned = [];
+    state.selected = [];
+    state.vidCounts = {};
+  }
   saveState();
   renderChannels();
   document.getElementById('logEntries').innerHTML = '';
@@ -660,9 +677,11 @@ document.getElementById('addBtn').addEventListener('click', () => {
   document.getElementById('addForm').classList.toggle('show');
 });
 document.getElementById('apiKey').addEventListener('change', () => {
-  state.apiKey = document.getElementById('apiKey').value.trim();
+  const k = document.getElementById('apiKey').value.trim();
+  state.apiKey = (k.startsWith('AIza') && k.length < 100) ? k : '';
+  document.getElementById('apiKey').value = state.apiKey;
   saveState();
-  addLog('API 키 저장됨', 'info');
+  if (state.apiKey) addLog('API 키 저장됨', 'info');
 });
 
 // ── 초기 실행 ─────────────────────────────────────

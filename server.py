@@ -6,6 +6,18 @@ import threading, time
 app = Flask(__name__, static_folder='.')
 CORS(app)
 
+# ── Whisper 모델 (서버 시작시 한번만 로드) ──────────
+whisper_model = None
+def load_whisper():
+    global whisper_model
+    try:
+        from faster_whisper import WhisperModel
+        print('[Whisper] tiny 모델 로딩 중...')
+        whisper_model = WhisperModel("tiny", device="cpu", compute_type="int8")
+        print('[Whisper] 로딩 완료')
+    except Exception as e:
+        print(f'[Whisper] 로딩 실패: {e}')
+threading.Thread(target=load_whisper, daemon=True).start()
 
 # ── 셀프 핑 ──────────────────────────────────────────
 RENDER_URL = os.environ.get('RENDER_EXTERNAL_URL', '')

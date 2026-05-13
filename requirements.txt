@@ -1,4 +1,4 @@
 flask
 flask-cors
-yt-dlp
+youtube-transcript-api
 faster-whisper

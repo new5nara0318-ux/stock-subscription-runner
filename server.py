@@ -1,6 +1,6 @@
 from flask import Flask, request, jsonify, send_from_directory
 from flask_cors import CORS
-import subprocess, tempfile, shutil, os, re, json, urllib.request
+import json, urllib.request, os, re
 import threading, time
 
 app = Flask(__name__, static_folder='.')
@@ -20,7 +20,7 @@ def load_whisper():
 threading.Thread(target=load_whisper, daemon=True).start()
 
 # ── 셀프 핑 ──────────────────────────────────────────
-RENDER_URL = os.environ.get('RENDER_EXTERNAL_URL', '')
+RENDER_URL = os.environ.get('SELF_URL', os.environ.get('RENDER_EXTERNAL_URL', ''))
 def self_ping():
     if not RENDER_URL:
         return
@@ -145,92 +145,49 @@ def subtitle():
     if not video_id:
         return jsonify({"error": "videoId 필요"}), 400
 
-    # 이미 학습된 영상이면 스킵
+    # 이미 학습된 영상 스킵
     if video_id in learned_videos:
         return jsonify({"success": False, "error": "이미 학습됨", "videoId": video_id, "skip": True})
 
-    tmpdir = tempfile.mkdtemp()
     try:
-        url = f"https://www.youtube.com/watch?v={video_id}"
+        from youtube_transcript_api import YouTubeTranscriptApi, NoTranscriptFound, TranscriptsDisabled
 
-        # 1단계: 자막 시도
-        cmd = [
-            "yt-dlp", "--skip-download",
-            "--write-auto-sub", "--write-sub",
-            "--sub-lang", "ko,en",
-            "--sub-format", "vtt",
-            "--output", os.path.join(tmpdir, "%(id)s"),
-            url
-        ]
-        subprocess.run(cmd, capture_output=True, text=True, timeout=60)
+        # 한국어 우선, 없으면 영어, 없으면 자동생성
+        transcript = None
+        try:
+            transcript = YouTubeTranscriptApi.get_transcript(video_id, languages=['ko'])
+        except:
+            try:
+                transcript = YouTubeTranscriptApi.get_transcript(video_id, languages=['en'])
+            except:
+                try:
+                    # 자동생성 자막 포함 전체 시도
+                    transcript_list = YouTubeTranscriptApi.list_transcripts(video_id)
+                    t = transcript_list.find_generated_transcript(['ko', 'en'])
+                    transcript = t.fetch()
+                except:
+                    pass
 
-        vtt_files = [f for f in os.listdir(tmpdir) if f.endswith('.vtt')]
-
-        if vtt_files:
-            # 자막 있음 → vtt 파싱
-            with open(os.path.join(tmpdir, vtt_files[0]), encoding="utf-8") as f:
-                raw = f.read()
-            lines = []
+        if transcript:
+            lines = [item['text'].strip() for item in transcript if item['text'].strip()]
+            # 중복 제거
+            deduped = []
             prev = ''
-            for line in raw.splitlines():
-                line = line.strip()
-                if not line: continue
-                if line.startswith(('WEBVTT','Kind:','Language:','X-')): continue
-                if re.match(r'^\d{2}:\d{2}', line) or '-->' in line: continue
-                line = re.sub(r'<[^>]+>', '', line).strip()
-                if line and line != prev:
-                    lines.append(line)
+            for line in lines:
+                if line != prev:
+                    deduped.append(line)
                     prev = line
-            text = '\n'.join(lines)
+            text = '\n'.join(deduped)
             if text.strip():
                 learned_videos.add(video_id)
                 save_learned()
-                return jsonify({"success": True, "text": text, "videoId": video_id, "method": "subtitle"})
+                return jsonify({"success": True, "text": text, "videoId": video_id, "method": "transcript"})
 
-        # 2단계: 자막 없음 → 음성 다운로드 후 Whisper
-        if whisper_model is None:
-            return jsonify({"success": False, "error": "Whisper 모델 로딩 중, 잠시 후 재시도", "videoId": video_id})
+        return jsonify({"success": False, "error": "자막 없음", "videoId": video_id})
 
-        print(f'[Whisper] 음성 다운로드 시작: {video_id}')
-        audio_path = os.path.join(tmpdir, f'{video_id}.mp3')
-        dl_cmd = [
-            "yt-dlp",
-            "--extract-audio", "--audio-format", "mp3",
-            "--audio-quality", "9",  # 최저 품질 (파일 작게)
-            "--output", audio_path,
-            url
-        ]
-        dl_result = subprocess.run(dl_cmd, capture_output=True, text=True, timeout=120)
-
-        # 실제 저장된 파일 찾기
-        mp3_files = [f for f in os.listdir(tmpdir) if f.endswith('.mp3')]
-        if not mp3_files:
-            return jsonify({"success": False, "error": "음성 다운로드 실패", "videoId": video_id})
-
-        audio_file = os.path.join(tmpdir, mp3_files[0])
-        print(f'[Whisper] 변환 시작: {audio_file}')
-
-        segments, info = whisper_model.transcribe(audio_file, language="ko", beam_size=1)
-        lines = [seg.text.strip() for seg in segments if seg.text.strip()]
-        text = '\n'.join(lines)
-
-        # 음성 파일 즉시 삭제
-        os.remove(audio_file)
-        print(f'[Whisper] 완료: {len(lines)}줄, 음성파일 삭제됨')
-
-        if not text.strip():
-            return jsonify({"success": False, "error": "음성에서 텍스트 추출 실패", "videoId": video_id})
-
-        learned_videos.add(video_id)
-        save_learned()
-        return jsonify({"success": True, "text": text, "videoId": video_id, "method": "whisper"})
-
-    except subprocess.TimeoutExpired:
-        return jsonify({"success": False, "error": "시간 초과", "videoId": video_id})
     except Exception as e:
+        print(f'[자막] 오류: {e}')
         return jsonify({"success": False, "error": str(e), "videoId": video_id})
-    finally:
-        shutil.rmtree(tmpdir, ignore_errors=True)
 
 if __name__ == '__main__':
     port = int(os.environ.get('PORT', 5050))

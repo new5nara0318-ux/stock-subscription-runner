@@ -70,26 +70,71 @@ def videos():
     api_key    = request.args.get('apiKey', '')
     if not channel_id or not api_key:
         return jsonify({"error": "channelId, apiKey 필요"}), 400
-    url = (
+
+    # 1단계: 영상 목록
+    search_url = (
         f"https://www.googleapis.com/youtube/v3/search"
         f"?key={api_key}&channelId={channel_id}"
         f"&part=snippet,id&order=date&maxResults=50&type=video"
     )
     try:
-        with urllib.request.urlopen(url, timeout=15) as res:
+        with urllib.request.urlopen(search_url, timeout=15) as res:
             data = json.loads(res.read())
         if "error" in data:
             return jsonify({"error": data["error"]["message"]}), 400
-        result = [
-            {
+
+        items = data.get("items", [])
+        video_ids = [item["id"]["videoId"] for item in items]
+
+        # 2단계: duration 가져오기 (쇼츠 판별용)
+        duration_map = {}
+        if video_ids:
+            ids_str = ','.join(video_ids)
+            detail_url = (
+                f"https://www.googleapis.com/youtube/v3/videos"
+                f"?key={api_key}&id={ids_str}&part=contentDetails,snippet"
+            )
+            try:
+                with urllib.request.urlopen(detail_url, timeout=15) as res2:
+                    detail_data = json.loads(res2.read())
+                for vi in detail_data.get("items", []):
+                    vid = vi["id"]
+                    dur_str = vi["contentDetails"]["duration"]  # ex: PT1M30S
+                    # ISO 8601 파싱
+                    import re as re2
+                    m = re2.match(r'PT(?:(\d+)H)?(?:(\d+)M)?(?:(\d+)S)?', dur_str)
+                    if m:
+                        h = int(m.group(1) or 0)
+                        mn = int(m.group(2) or 0)
+                        s = int(m.group(3) or 0)
+                        duration_map[vid] = h*3600 + mn*60 + s
+            except Exception as e:
+                print(f'[duration] 가져오기 실패: {e}')
+
+        # 3단계: 타입 판별
+        def classify(item, title):
+            vid = item["id"]["videoId"]
+            live = item["snippet"].get("liveBroadcastContent", "none")
+            if live in ("live", "completed"):
+                return "live"
+            dur = duration_map.get(vid, 999)
+            if dur <= 60 or "#shorts" in title.lower() or "#쇼츠" in title.lower():
+                return "shorts"
+            return "video"
+
+        result = []
+        for item in items:
+            title = item["snippet"]["title"]
+            result.append({
                 "videoId": item["id"]["videoId"],
-                "title": item["snippet"]["title"],
+                "title": title,
                 "publishedAt": item["snippet"]["publishedAt"],
                 "liveBroadcastContent": item["snippet"].get("liveBroadcastContent", "none"),
-                "already_learned": item["id"]["videoId"] in learned_videos  # 중복 여부
-            }
-            for item in data.get("items", [])
-        ]
+                "duration": duration_map.get(item["id"]["videoId"], 0),
+                "type": classify(item, title),
+                "already_learned": item["id"]["videoId"] in learned_videos
+            })
+
         return jsonify({"videos": result})
     except Exception as e:
         return jsonify({"error": str(e)}), 500

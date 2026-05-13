@@ -502,8 +502,8 @@ async function learnChannel(ch) {
       return false;
     }
 
-    // 2. 타입 분류
-    const classified = videos.map(v => ({...v, type: classifyVideo(v)}));
+    // 2. 타입 분류 (서버에서 이미 판별됨)
+    const classified = videos; // type 필드 이미 있음
     const shorts = classified.filter(v=>v.type==='shorts');
     const vids   = classified.filter(v=>v.type==='video');
     const lives  = classified.filter(v=>v.type==='live');

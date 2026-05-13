@@ -6,23 +6,20 @@ import threading, time
 app = Flask(__name__, static_folder='.')
 CORS(app)
 
-# ── 셀프 핑 (렌더 슬립 방지) ──────────────────────────
+# 셀프 핑
 RENDER_URL = os.environ.get('RENDER_EXTERNAL_URL', '')
-
 def self_ping():
     if not RENDER_URL:
         return
     url = RENDER_URL.rstrip('/') + '/ping'
     while True:
-        time.sleep(600)  # 10분마다
+        time.sleep(600)
         try:
             urllib.request.urlopen(url, timeout=10)
-            print(f'[핑] 셀프 핑 성공: {url}')
+            print(f'[핑] OK')
         except Exception as e:
-            print(f'[핑] 셀프 핑 실패: {e}')
-
+            print(f'[핑] 실패: {e}')
 threading.Thread(target=self_ping, daemon=True).start()
-# ─────────────────────────────────────────────────────
 
 @app.route('/')
 def index():
@@ -42,7 +39,6 @@ def videos():
     api_key = request.args.get('apiKey', '')
     if not channel_id or not api_key:
         return jsonify({"error": "channelId, apiKey 필요"}), 400
-
     url = (
         f"https://www.googleapis.com/youtube/v3/search"
         f"?key={api_key}&channelId={channel_id}"
@@ -58,6 +54,7 @@ def videos():
                 "videoId": item["id"]["videoId"],
                 "title": item["snippet"]["title"],
                 "publishedAt": item["snippet"]["publishedAt"],
+                "liveBroadcastContent": item["snippet"].get("liveBroadcastContent", "none"),
             }
             for item in data.get("items", [])
         ]
@@ -84,25 +81,47 @@ def subtitle():
             "--output", os.path.join(tmpdir, "%(id)s"),
             url
         ]
-        subprocess.run(cmd, capture_output=True, text=True, timeout=60)
+        result = subprocess.run(cmd, capture_output=True, text=True, timeout=60)
+        print(f"[yt-dlp] stdout: {result.stdout[:200]}")
+        print(f"[yt-dlp] stderr: {result.stderr[:200]}")
 
-        for fname in os.listdir(tmpdir):
-            if fname.endswith(".vtt"):
-                with open(os.path.join(tmpdir, fname), encoding="utf-8") as f:
-                    raw = f.read()
-                lines = []
-                for line in raw.splitlines():
-                    line = line.strip()
-                    if not line or "-->" in line:
-                        continue
-                    if line.startswith(("WEBVTT", "Kind:", "Language:")):
-                        continue
-                    line = re.sub(r"<[^>]+>", "", line)
-                    if line and line not in lines[-1:]:
-                        lines.append(line)
-                return jsonify({"success": True, "text": "\n".join(lines), "videoId": video_id})
+        # vtt 파일 찾기
+        vtt_files = [f for f in os.listdir(tmpdir) if f.endswith('.vtt')]
+        print(f"[vtt] 파일목록: {vtt_files}")
 
-        return jsonify({"success": False, "error": "자막 없음", "videoId": video_id})
+        if not vtt_files:
+            return jsonify({"success": False, "error": "자막 파일 없음", "videoId": video_id})
+
+        # 첫번째 vtt 파싱
+        with open(os.path.join(tmpdir, vtt_files[0]), encoding="utf-8") as f:
+            raw = f.read()
+
+        print(f"[vtt] 파일크기: {len(raw)}자")
+
+        lines = []
+        prev = ''
+        for line in raw.splitlines():
+            line = line.strip()
+            if not line:
+                continue
+            if line.startswith('WEBVTT') or line.startswith('Kind:') or line.startswith('Language:') or line.startswith('X-'):
+                continue
+            if re.match(r'^\d{2}:\d{2}', line) or '-->' in line:
+                continue
+            # HTML 태그, 타임스탬프 태그 제거
+            line = re.sub(r'<[^>]+>', '', line)
+            line = line.strip()
+            if line and line != prev:  # 중복 제거
+                lines.append(line)
+                prev = line
+
+        text = '\n'.join(lines)
+        print(f"[자막] 추출된 줄수: {len(lines)}")
+
+        if not text.strip():
+            return jsonify({"success": False, "error": "자막 내용 없음", "videoId": video_id})
+
+        return jsonify({"success": True, "text": text, "videoId": video_id})
 
     except subprocess.TimeoutExpired:
         return jsonify({"success": False, "error": "시간 초과", "videoId": video_id})

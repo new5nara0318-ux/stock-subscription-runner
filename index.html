@@ -132,6 +132,7 @@ header p{color:#666;font-size:13px;margin-top:5px;}
   <div class="controls">
     <button class="btn btn-red" id="learnBtn" disabled>▶ 학습 시작</button>
     <button class="btn btn-orange" id="autoBtn">⚡ 자동학습</button>
+    <button class="btn" id="stopBtn" style="background:#555;color:#fff;display:none;">⏹ 중지</button>
     <button class="btn btn-gray" id="selAllBtn">전체선택</button>
     <button class="btn btn-gray" id="deselAllBtn">전체해제</button>
     <button class="btn btn-green" id="addBtn">+ 채널추가</button>
@@ -456,16 +457,23 @@ function classifyVideo(v) {
   return 'video';
 }
 
-// ── 자막 추출 ─────────────────────────────────────
+let stopFlag = false;
+
+// 자막 추출
 async function fetchSubtitle(videoId, title) {
   try {
-    const res = await fetch(`${LOCAL_SERVER}/subtitle?videoId=${videoId}`, {signal: AbortSignal.timeout(90000)});
+    const res = await fetch(`${LOCAL_SERVER}/subtitle?videoId=${videoId}`, {signal: AbortSignal.timeout(180000)});
     const data = await res.json();
+    if (data.skip) {
+      addLog(`  ⏭️ 이미학습: ${title.substring(0,22)}`, 'info');
+      return null;
+    }
     if (data.success) {
-      addLog(`  📝 ${title.substring(0,22)}`, 'success');
+      const method = data.method === 'whisper' ? '🎙️Whisper' : '📝자막';
+      addLog(`  ${method}: ${title.substring(0,22)}`, 'success');
       return data.text;
     } else {
-      addLog(`  ⚠️ 자막없음: ${title.substring(0,22)}`, 'warning');
+      addLog(`  ⚠️ 실패: ${title.substring(0,22)} (${data.error})`, 'warning');
       return null;
     }
   } catch(e) {
@@ -511,11 +519,18 @@ async function learnChannel(ch) {
     };
     addLog(`📹 쇼츠 ${shorts.length} / 동영상 ${vids.length} / 라이브 ${lives.length} → 학습대상 ${toLearn.length}개`, 'info');
 
-    // 3. 자막 추출
+    // 3. 자막 추출 (중복 스킵)
     const subtitles = {};
     for (let i=0; i<toLearn.length; i++) {
+      if (stopFlag) { addLog('⏹ 중지됨', 'warning'); return false; }
       const v = toLearn[i];
-      state.learningStatus = `자막추출 ${i+1}/${toLearn.length}`;
+      if (v.already_learned) {
+        addLog(`  ⏭️ 서버이미학습: ${v.title.substring(0,22)}`, 'info');
+        state.vidCounts[ch.id].learned = i+1;
+        renderChannels();
+        continue;
+      }
+      state.learningStatus = `${i+1}/${toLearn.length}`;
       state.vidCounts[ch.id].learned = i;
       renderChannels();
       const text = await fetchSubtitle(v.videoId, v.title);
@@ -557,9 +572,12 @@ async function startLearning(ids) {
   if (!toLearn.length) { addLog('학습할 채널 없음', 'warning'); return; }
   state.apiKey = document.getElementById('apiKey').value.trim();
   saveState();
+  stopFlag = false;
+  document.getElementById('stopBtn').style.display = 'inline-block';
   addLog(`▶ 총 ${toLearn.length}개 채널 학습 시작`, 'info');
 
   for (let i=0; i<toLearn.length; i++) {
+    if (stopFlag) { addLog('⏹ 자동학습 중지됨', 'warning'); break; }
     const ch = state.channels.find(c=>c.id===toLearn[i]);
     if (!ch) continue;
     state.learning = ch.id;
@@ -570,8 +588,10 @@ async function startLearning(ids) {
     await sleep(400);
   }
 
+  stopFlag = false;
   state.selected = [];
   state.learning = null;
+  document.getElementById('stopBtn').style.display = 'none';
   renderChannels();
   updateLearnBtn();
   addLog(`🎉 전체 완료! (${state.learned.length}개 채널)`, 'success');
@@ -627,6 +647,10 @@ function resetAll() {
 function sleep(ms) { return new Promise(r=>setTimeout(r,ms)); }
 
 // ── 이벤트 ────────────────────────────────────────
+document.getElementById('stopBtn').addEventListener('click', () => {
+  stopFlag = true;
+  addLog('⏹ 중지 요청됨 (현재 영상 완료 후 중지)', 'warning');
+});
 document.getElementById('learnBtn').addEventListener('click', () => startLearning());
 document.getElementById('autoBtn').addEventListener('click', autoLearn);
 document.getElementById('selAllBtn').addEventListener('click', selectAll);

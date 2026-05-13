@@ -1,797 +1,657 @@
 <!DOCTYPE html>
 <html lang="ko">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>주식구독러너 - 유튜브 채널 학습기</title>
-    <style>
-        * { margin: 0; padding: 0; box-sizing: border-box; }
-        body { font-family: 'Segoe UI', sans-serif; background: #0f0f0f; color: #fff; min-height: 100vh; }
-        
-        .container { max-width: 950px; margin: 0 auto; padding: 20px; }
-        
-        header { text-align: center; padding: 30px 0; border-bottom: 1px solid #333; margin-bottom: 30px; }
-        header h1 { font-size: 28px; margin-bottom: 10px; }
-        header h1 span { color: #ff4444; }
-        header p { color: #888; font-size: 14px; }
-        
-        .settings-box { background: #1a1a1a; border-radius: 12px; padding: 20px; margin-bottom: 20px; }
-        .settings-box h3 { margin-bottom: 15px; color: #888; font-size: 14px; }
-        
-        .setting-row { display: flex; gap: 15px; margin-bottom: 15px; flex-wrap: wrap; }
-        .setting-row:last-child { margin-bottom: 0; }
-        
-        .input-group { flex: 1; min-width: 200px; }
-        .input-group label { display: block; font-size: 12px; color: #888; margin-bottom: 5px; }
-        .input-group input { width: 100%; padding: 10px 15px; background: #222; border: 1px solid #333; border-radius: 8px; color: #fff; font-size: 14px; }
-        .input-group input:focus { outline: none; border-color: #ff4444; }
-        .input-group input::placeholder { color: #666; }
-        
-        .mode-toggle { display: flex; gap: 10px; }
-        .mode-btn { padding: 10px 20px; border: 2px solid #333; background: transparent; border-radius: 8px; color: #888; cursor: pointer; font-size: 14px; transition: all 0.2s; }
-        .mode-btn.active { border-color: #ff4444; background: #ff4444; color: #fff; }
-        .mode-btn:hover:not(.active) { border-color: #555; }
-        
-        .controls { display: flex; gap: 10px; margin-bottom: 20px; flex-wrap: wrap; }
-        .btn { padding: 10px 20px; border: none; border-radius: 8px; cursor: pointer; font-size: 14px; font-weight: 600; transition: all 0.2s; }
-        .btn-primary { background: #ff4444; color: #fff; }
-        .btn-primary:hover { background: #ff6666; }
-        .btn-secondary { background: #333; color: #fff; }
-        .btn-secondary:hover { background: #444; }
-        .btn:disabled { opacity: 0.5; cursor: not-allowed; }
-        
-        .progress-bar { background: #222; border-radius: 10px; height: 20px; margin-bottom: 20px; overflow: hidden; }
-        .progress-fill { background: linear-gradient(90deg, #ff4444, #ff6b6b); height: 100%; transition: width 0.3s; display: flex; align-items: center; justify-content: center; font-size: 12px; }
-        
-        .channel-list { display: flex; flex-direction: column; gap: 10px; }
-        
-        .channel-card { background: #1a1a1a; border-radius: 12px; padding: 15px 20px; display: flex; align-items: center; gap: 15px; transition: all 0.2s; border: 2px solid transparent; }
-        .channel-card:hover { background: #222; }
-        .channel-card.selected { border-color: #ff4444; background: #1a1010; }
-        .channel-card.learning { border-color: #4CAF50; background: #0a1a0a; }
-        .channel-card.done { opacity: 0.7; }
-        
-        .channel-card input[type="checkbox"] { width: 22px; height: 22px; cursor: pointer; accent-color: #ff4444; }
-        .channel-card input[type="checkbox"]:disabled { cursor: not-allowed; opacity: 0.5; }
-        .channel-info { flex: 1; min-width: 200px; }
-        .channel-name { font-size: 16px; font-weight: 600; margin-bottom: 5px; }
-        .channel-desc { font-size: 12px; color: #888; }
-        
-        .channel-status { 
-            font-size: 12px; 
-            padding: 5px 12px; 
-            border-radius: 20px; 
-            background: #333; 
-            min-width: 80px;
-            text-align: center;
-        }
-        .channel-status.learning { background: #4CAF50; }
-        .channel-status.done { background: #2196F3; }
-        
-        /* 진행률 표시 */
-        .channel-progress { 
-            min-width: 150px; 
-            display: flex; 
-            flex-direction: column; 
-            gap: 5px; 
-        }
-        .progress-header { 
-            display: flex; 
-            justify-content: space-between; 
-            font-size: 11px; 
-            color: #888; 
-        }
-        .progress-header .percent { 
-            color: #ff4444; 
-            font-weight: bold; 
-        }
-        .mini-bar { 
-            background: #333; 
-            border-radius: 4px; 
-            height: 8px; 
-            overflow: hidden; 
-        }
-        .mini-bar-fill { 
-            height: 100%; 
-            background: linear-gradient(90deg, #ff4444, #ff6b6b); 
-            transition: width 0.3s; 
-            border-radius: 4px; 
-        }
-        
-        /* 스텝 인디케이터 */
-        .steps-indicator {
-            display: flex;
-            gap: 8px;
-            align-items: center;
-            min-width: 200px;
-        }
-        .step-dot {
-            width: 10px;
-            height: 10px;
-            border-radius: 50%;
-            background: #333;
-            transition: all 0.3s;
-        }
-        .step-dot.active { background: #ff4444; box-shadow: 0 0 8px #ff4444; }
-        .step-dot.done { background: #4CAF50; }
-        .step-label {
-            font-size: 11px;
-            color: #666;
-            min-width: 60px;
-        }
-        .step-label.active { color: #ff4444; }
-        .step-label.done { color: #4CAF50; }
-        
-        /* 서버 모드 인디케이터 */
-        .server-indicator {
-            display: flex;
-            align-items: center;
-            gap: 5px;
-            font-size: 11px;
-            color: #888;
-            padding: 3px 8px;
-            background: #222;
-            border-radius: 4px;
-        }
-        .server-indicator .dot {
-            width: 8px;
-            height: 8px;
-            border-radius: 50%;
-            background: #ff4444;
-        }
-        .server-indicator.active .dot { 
-            background: #4CAF50; 
-            animation: pulse 1.5s infinite;
-        }
-        @keyframes pulse {
-            0%, 100% { opacity: 1; }
-            50% { opacity: 0.5; }
-        }
-        
-        .log-container { background: #1a1a1a; border-radius: 12px; padding: 20px; margin-top: 30px; max-height: 400px; overflow-y: auto; }
-        .log-container h3 { margin-bottom: 15px; color: #888; font-size: 14px; }
-        .log-entry { font-size: 13px; padding: 8px 0; border-bottom: 1px solid #222; color: #aaa; }
-        .log-entry .time { color: #666; margin-right: 10px; }
-        .log-entry.success { color: #4CAF50; }
-        .log-entry.error { color: #ff4444; }
-        .log-entry.info { color: #2196F3; }
-        .log-entry.warning { color: #FFA500; }
-        .log-entry.loading { color: #9C27B0; }
-        
-        .modal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.8); z-index: 1000; align-items: center; justify-content: center; }
-        .modal.show { display: flex; }
-        .modal-content { background: #1a1a1a; padding: 30px; border-radius: 16px; max-width: 500px; width: 90%; text-align: center; }
-        .modal-content h2 { margin-bottom: 20px; }
-        .spinner { width: 50px; height: 50px; border: 4px solid #333; border-top-color: #ff4444; border-radius: 50%; animation: spin 1s linear infinite; margin: 20px auto; }
-        @keyframes spin { to { transform: rotate(360deg); } }
-        .learning-info { margin: 20px 0; }
-        .learning-info .current { font-size: 24px; font-weight: bold; color: #ff4444; }
-        
-        .stats { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin-bottom: 20px; }
-        .stat-box { background: #1a1a1a; padding: 15px; border-radius: 10px; text-align: center; }
-        .stat-box .value { font-size: 24px; font-weight: bold; color: #ff4444; }
-        .stat-box .label { font-size: 12px; color: #888; margin-top: 5px; }
-        
-        .notice { background: #1a1a1a; border-left: 4px solid #FFA500; padding: 15px; margin-bottom: 20px; border-radius: 0 8px 8px 0; font-size: 13px; color: #888; }
-        .notice strong { color: #FFA500; }
-        
-        /* 학습 모드 토글 */
-        .learning-mode-toggle {
-            display: flex;
-            align-items: center;
-            gap: 10px;
-            padding: 10px 15px;
-            background: #222;
-            border-radius: 8px;
-            margin-bottom: 15px;
-        }
-        .learning-mode-toggle label {
-            font-size: 13px;
-            color: #888;
-        }
-        .toggle-switch {
-            position: relative;
-            width: 50px;
-            height: 26px;
-        }
-        .toggle-switch input { opacity: 0; width: 0; height: 0; }
-        .toggle-slider {
-            position: absolute;
-            cursor: pointer;
-            top: 0; left: 0; right: 0; bottom: 0;
-            background-color: #333;
-            transition: .4s;
-            border-radius: 26px;
-        }
-        .toggle-slider:before {
-            position: absolute;
-            content: "";
-            height: 20px;
-            width: 20px;
-            left: 3px;
-            bottom: 3px;
-            background-color: white;
-            transition: .4s;
-            border-radius: 50%;
-        }
-        .toggle-switch input:checked + .toggle-slider { background-color: #4CAF50; }
-        .toggle-switch input:checked + .toggle-slider:before { transform: translateX(24px); }
-    </style>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>주식구독러너</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box;}
+body{font-family:'Segoe UI',sans-serif;background:#0f0f0f;color:#fff;min-height:100vh;}
+.container{max-width:980px;margin:0 auto;padding:20px;}
+header{text-align:center;padding:24px 0;border-bottom:1px solid #222;margin-bottom:20px;}
+header h1{font-size:26px;}header h1 span{color:#ff4444;}
+header p{color:#666;font-size:13px;margin-top:5px;}
+
+.box{background:#1a1a1a;border-radius:12px;padding:16px;margin-bottom:14px;}
+.input-group label{display:block;font-size:11px;color:#888;margin-bottom:4px;}
+.input-group input{width:100%;padding:9px 12px;background:#222;border:1px solid #333;border-radius:8px;color:#fff;font-size:13px;font-family:monospace;}
+.input-group input:focus{outline:none;border-color:#ff4444;}
+
+.toggle-row{display:flex;align-items:center;gap:10px;margin-bottom:12px;}
+.toggle-switch{position:relative;width:44px;height:22px;}
+.toggle-switch input{opacity:0;width:0;height:0;}
+.toggle-slider{position:absolute;cursor:pointer;inset:0;background:#333;transition:.3s;border-radius:22px;}
+.toggle-slider:before{position:absolute;content:"";height:16px;width:16px;left:3px;bottom:3px;background:#fff;transition:.3s;border-radius:50%;}
+.toggle-switch input:checked+.toggle-slider{background:#4CAF50;}
+.toggle-switch input:checked+.toggle-slider:before{transform:translateX(22px);}
+.sdot{width:7px;height:7px;border-radius:50%;background:#ff4444;display:inline-block;margin-right:4px;}
+.sdot.on{background:#4CAF50;animation:pulse 1.5s infinite;}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.4}}
+
+.stats{display:grid;grid-template-columns:repeat(5,1fr);gap:8px;margin-bottom:14px;}
+.stat-box{background:#1a1a1a;padding:11px;border-radius:10px;text-align:center;}
+.stat-box .val{font-size:20px;font-weight:bold;color:#ff4444;}
+.stat-box .lbl{font-size:10px;color:#666;margin-top:2px;}
+
+.controls{display:flex;gap:7px;margin-bottom:12px;flex-wrap:wrap;}
+.btn{padding:8px 14px;border:none;border-radius:8px;cursor:pointer;font-size:13px;font-weight:600;transition:all .2s;}
+.btn-red{background:#ff4444;color:#fff;}.btn-red:hover{background:#ff6666;}
+.btn-orange{background:#e65c00;color:#fff;}.btn-orange:hover{background:#ff6d00;}
+.btn-gray{background:#2a2a2a;color:#ccc;border:1px solid #333;}.btn-gray:hover{background:#333;}
+.btn-green{background:#1b5e20;color:#fff;}.btn-green:hover{background:#2e7d32;}
+.btn:disabled{opacity:.4;cursor:not-allowed;}
+
+.add-form{display:none;background:#111;border-radius:10px;padding:12px;margin-bottom:12px;gap:8px;flex-wrap:wrap;}
+.add-form.show{display:flex;}
+.add-form input{flex:1;min-width:120px;padding:8px 11px;background:#222;border:1px solid #333;border-radius:7px;color:#fff;font-size:13px;}
+
+/* 타입 필터 */
+.type-filter{display:flex;gap:6px;align-items:center;margin-bottom:12px;flex-wrap:wrap;}
+.type-filter label{font-size:12px;color:#888;}
+.type-chk{display:flex;align-items:center;gap:5px;padding:5px 12px;background:#1a1a1a;border-radius:20px;cursor:pointer;border:1px solid #333;font-size:12px;transition:all .2s;}
+.type-chk input{accent-color:#ff4444;width:14px;height:14px;}
+.type-chk.shorts-chk{border-color:#9c27b0;}.type-chk.shorts-chk.active{background:#1a0a2a;color:#ce93d8;}
+.type-chk.video-chk{border-color:#2196f3;}.type-chk.video-chk.active{background:#0a1020;color:#90caf9;}
+.type-chk.live-chk{border-color:#f44336;}.type-chk.live-chk.active{background:#1a0a0a;color:#ef9a9a;}
+
+.tabs{display:flex;gap:5px;margin-bottom:12px;}
+.tab-btn{padding:7px 18px;border:none;border-radius:8px;cursor:pointer;font-size:13px;font-weight:600;background:#222;color:#666;transition:all .2s;}
+.tab-btn.active{background:#ff4444;color:#fff;}
+
+.progress-bar{background:#1a1a1a;border-radius:10px;height:16px;margin-bottom:14px;overflow:hidden;}
+.progress-fill{background:linear-gradient(90deg,#ff4444,#ff6b6b);height:100%;transition:width .3s;display:flex;align-items:center;justify-content:center;font-size:10px;}
+
+.channel-list{display:flex;flex-direction:column;gap:7px;}
+.channel-card{background:#1a1a1a;border-radius:11px;padding:12px 15px;display:flex;align-items:center;gap:10px;border:2px solid transparent;transition:all .2s;}
+.channel-card:hover{background:#1f1f1f;}
+.channel-card.selected{border-color:#ff4444;background:#160808;}
+.channel-card.learning{border-color:#4CAF50;background:#081408;}
+.channel-card.done-card{opacity:.7;}
+.channel-card input[type=checkbox]{width:18px;height:18px;cursor:pointer;accent-color:#ff4444;flex-shrink:0;}
+
+.ch-info{flex:1;min-width:0;}
+.ch-name{font-size:14px;font-weight:600;}
+.ch-sub{font-size:11px;color:#666;margin-top:2px;}
+.ch-badge{display:inline-block;font-size:10px;padding:1px 7px;border-radius:8px;margin-left:6px;vertical-align:middle;}
+.ch-badge.done{background:#1b3a1b;color:#4CAF50;}
+.ch-badge.learning{background:#1a2a10;color:#8bc34a;}
+
+.ch-counts{font-size:10px;color:#555;display:flex;gap:8px;margin-top:3px;flex-wrap:wrap;}
+.ch-counts span{display:flex;align-items:center;gap:3px;}
+
+.mini-prog{min-width:110px;flex-shrink:0;}
+.mini-prog-hd{display:flex;justify-content:space-between;font-size:10px;color:#555;margin-bottom:2px;}
+.mini-bar{background:#222;border-radius:3px;height:5px;overflow:hidden;}
+.mini-bar-fill{height:100%;background:linear-gradient(90deg,#ff4444,#ff6b6b);transition:width .3s;border-radius:3px;}
+
+.ch-acts{display:flex;gap:4px;flex-shrink:0;}
+.ch-act{padding:4px 8px;border:none;border-radius:6px;cursor:pointer;font-size:11px;font-weight:600;}
+.ch-act-dl{background:#0d47a1;color:#fff;}
+.ch-act-del{background:#1a0000;color:#ff6666;border:1px solid #330000;}
+
+.log-box{background:#1a1a1a;border-radius:12px;padding:16px;margin-top:20px;max-height:300px;overflow-y:auto;}
+.log-box h3{margin-bottom:10px;color:#555;font-size:12px;}
+.log-entry{font-size:12px;padding:4px 0;border-bottom:1px solid #1f1f1f;color:#777;}
+.log-entry .t{color:#444;margin-right:7px;}
+.log-entry.success{color:#4CAF50;}.log-entry.error{color:#ff4444;}
+.log-entry.info{color:#2196F3;}.log-entry.warning{color:#FFA500;}.log-entry.loading{color:#ab47bc;}
+</style>
 </head>
 <body>
-    <div class="container">
-        <header>
-            <h1>📺 주식<span>구독</span>러너</h1>
-            <p>유튜브 채널 자동 학습 시스템</p>
-        </header>
-        
-        <div class="notice">
-            <strong>💡 알림:</strong> 이미 학습한 채널은 자동으로 건너뛰며, 선택 해제되어 있습니다.
-        </div>
-        
-        <div class="settings-box">
-            <h3>⚙️ 설정</h3>
-            <div class="learning-mode-toggle">
-                <label>🚀 서버학습 활성화:</label>
-                <label class="toggle-switch">
-                    <input type="checkbox" id="serverModeToggle" checked>
-                    <span class="toggle-slider"></span>
-                </label>
-                <div class="server-indicator active" id="serverIndicator">
-                    <span class="dot"></span>
-                    <span>서버 연결됨</span>
-                </div>
-            </div>
-            <div class="setting-row">
-                <div class="input-group" style="flex: 2;">
-                    <label>YouTube API 키</label>
-                    <div style="display:flex; gap:8px;">
-                        <input type="text" id="apiKey" placeholder="AIza..." style="flex:1; font-family:monospace; font-size:12px;">
-                        <button onclick="clearApiKey()" style="padding:8px 12px; background:#555; border:none; border-radius:8px; color:#fff; cursor:pointer; white-space:nowrap;">🗑️ 초기화</button>
-                    </div>
-                </div>
-                <div class="input-group" style="flex: 1;">
-                    <label>실행 모드</label>
-                    <div class="mode-toggle">
-                        <button class="mode-btn active" data-mode="server" onclick="setMode('server')">🌐 서버실행</button>
-                        <button class="mode-btn" data-mode="local" onclick="setMode('local')">💻 내컴실행</button>
-                    </div>
-                </div>
-            </div>
-        </div>
-        
-        <div class="stats">
-            <div class="stat-box">
-                <div class="value" id="totalChannels">0</div>
-                <div class="label">전체 채널</div>
-            </div>
-            <div class="stat-box">
-                <div class="value" id="selectedCount">0</div>
-                <div class="label">선택됨</div>
-            </div>
-            <div class="stat-box">
-                <div class="value" id="learnedCount">0</div>
-                <div class="label">학습완료</div>
-            </div>
-            <div class="stat-box">
-                <div class="value" id="remainingCount">0</div>
-                <div class="label">남은 채널</div>
-            </div>
-        </div>
-        
-        <div class="controls">
-            <button class="btn btn-primary" id="learnBtn" disabled>▶ 학습 시작</button>
-            <button class="btn btn-secondary" id="selectAllBtn">전체 선택</button>
-            <button class="btn btn-secondary" id="deselectAllBtn">전체 해제</button>
-            <button class="btn btn-secondary" id="resetBtn">🔄 학습 초기화</button>
-        </div>
-        
-        <div class="progress-bar">
-            <div class="progress-fill" id="progressFill" style="width: 0%">0%</div>
-        </div>
-        
-        <div class="channel-list" id="channelList"></div>
-        
-        <div class="log-container" id="logContainer">
-            <h3>📋 학습 로그</h3>
-            <div id="logEntries"></div>
-        </div>
+<div class="container">
+  <header>
+    <h1>📺 주식<span>구독</span>러너</h1>
+    <p>유튜브 채널 자막 자동 수집 시스템</p>
+  </header>
+
+  <div class="box">
+    <div class="toggle-row">
+      <label>🚀 서버학습:</label>
+      <label class="toggle-switch"><input type="checkbox" id="serverToggle" checked><span class="toggle-slider"></span></label>
+      <span id="serverLabel"><span class="sdot on"></span>서버 연결됨</span>
     </div>
-    
+    <div style="display:flex;gap:10px;align-items:flex-end;flex-wrap:wrap;">
+      <div class="input-group" style="flex:1;">
+        <label>YouTube API 키</label>
+        <div style="display:flex;gap:6px;">
+          <input type="text" id="apiKey" placeholder="AIza...">
+          <button class="btn btn-gray" onclick="clearApiKey()" style="padding:8px 10px;">🗑️</button>
+        </div>
+      </div>
+    </div>
+  </div>
 
-    <script>
-        // 채널 데이터
-        const channels = [
-            { id: 1, name: "주식카페_주식단테사", desc: "단기장 매매 기법, 차트분석", channelId: "UCBPoQRmiTfeGKWRZFON8XAA" },
-            { id: 2, name: "주식코주부_주식단테사", desc: "차트분석 기반 단타 전략", channelId: "UCEThjMvSpp_e784LAXG_iAg" },
-            { id: 3, name: "1분주식", desc: "1분 단타, 초단기 매매법", channelId: "UCI9oLnJOXVgcvtvsmzl04gQ" },
-            { id: 4, name: "주식몬스터", desc: "차트기본, 단타기법", channelId: "UCz-GpeRQbJs5djV0-L-ENQA" },
-            { id: 5, name: "주식김사부", desc: "부자되는법, 단타기법", channelId: "UCBCZ4ho7wVjq2uLnxtCcYiw" },
-            { id: 6, name: "주식바바", desc: "VA매매, 333기법", channelId: "UCA8-VnK7ZhdcXXg_Ayin-ug" },
-            { id: 7, name: "주식박카스", desc: "ETF분석, 투자아이디어", channelId: "UCnD_fNScAjhwIEJvjIVmWdQ" },
-            { id: 8, name: "주독", desc: "비트코인, 장기투자", channelId: "UCdnKljR85LaltNTQ_Ms7i9A" },
-            { id: 9, name: "용사부", desc: "국내个股分析, 단타전략", channelId: "UC-jgYMsPz6NuDT9j9dmNODg" },
-            { id: 10, name: "주식등대", desc: "차트분석, 투자기법", channelId: "UCM9c85H-8nFIcIP8PvqasZg" },
-            { id: 11, name: "또사이선생", desc: "스텔스투자, 단테기법", channelId: "UCwiQ2wkrovoZmgUay7GcOiQ" },
-            { id: 12, name: "또또사이선생", desc: "추가 채널", channelId: "UC-O5GlHmFZK6R6_8kpptZ3A" }
-        ];
+  <div class="stats">
+    <div class="stat-box"><div class="val" id="sTotalCh">0</div><div class="lbl">전체채널</div></div>
+    <div class="stat-box"><div class="val" id="sLearned">0</div><div class="lbl">완료채널</div></div>
+    <div class="stat-box"><div class="val" id="sTotalVid">0</div><div class="lbl">총영상수</div></div>
+    <div class="stat-box"><div class="val" id="sLearnedVid">0</div><div class="lbl">학습영상</div></div>
+    <div class="stat-box"><div class="val" id="sSelected">0</div><div class="lbl">선택됨</div></div>
+  </div>
 
-        // 학습 단계
-        const LEARNING_STEPS = [
-            { name: '채널정보', progress: 25 },
-            { name: '영상분석', progress: 50 },
-            { name: '기법추출', progress: 75 },
-            { name: '완료', progress: 100 }
-        ];
+  <div class="controls">
+    <button class="btn btn-red" id="learnBtn" disabled>▶ 학습 시작</button>
+    <button class="btn btn-orange" id="autoBtn">⚡ 자동학습</button>
+    <button class="btn btn-gray" id="selAllBtn">전체선택</button>
+    <button class="btn btn-gray" id="deselAllBtn">전체해제</button>
+    <button class="btn btn-green" id="addBtn">+ 채널추가</button>
+    <button class="btn btn-gray" id="resetBtn">🔄 초기화</button>
+  </div>
 
-        // 로컬 스토리지 키
-        const STORAGE_KEY = 'stock_guru_learner_v3';
-        
-        // 상태 관리
-        let state = {
-            selected: [],
-            learned: [],
-            learning: null,
-            currentStep: 0,
-            learningStatus: '',
-            logs: [],
-            apiKey: '',
-            mode: 'server',
-            serverEnabled: true
-        };
+  <!-- 채널 추가 폼 -->
+  <div class="add-form" id="addForm">
+    <input id="newName" placeholder="채널명 (예: 주식단테)">
+    <input id="newCid" placeholder="채널ID (UCxxxx...)">
+    <input id="newDesc" placeholder="설명 (선택)">
+    <button class="btn btn-red" onclick="addChannel()">추가</button>
+    <button class="btn btn-gray" onclick="closeAddForm()">취소</button>
+  </div>
 
-        // API 키 초기화
-        function clearApiKey() {
-            state.apiKey = '';
-            document.getElementById('apiKey').value = '';
-            saveState();
-            addLog('API 키 초기화됨 - 다시 붙여넣기 하세요', 'warning');
-        }
+  <!-- 타입 필터 -->
+  <div class="type-filter">
+    <label>학습 대상:</label>
+    <label class="type-chk shorts-chk active" id="chkShortsLabel">
+      <input type="checkbox" id="chkShorts" checked onchange="updateTypeFilter()"> 🩳 쇼츠
+    </label>
+    <label class="type-chk video-chk active" id="chkVideoLabel">
+      <input type="checkbox" id="chkVideo" checked onchange="updateTypeFilter()"> 🎬 동영상
+    </label>
+    <label class="type-chk live-chk active" id="chkLiveLabel">
+      <input type="checkbox" id="chkLive" checked onchange="updateTypeFilter()"> 🔴 라이브
+    </label>
+  </div>
 
-        // 저장된 상태 로드
-        function loadState() {
-            const saved = localStorage.getItem(STORAGE_KEY);
-            if (saved) {
-                const parsed = JSON.parse(saved);
-                state.learned = parsed.learned || [];
-                state.logs = parsed.logs || [];
-                // API 키 유효성 검사 (AIza로 시작하고 39자여야 함)
-                const savedKey = parsed.apiKey || '';
-                state.apiKey = (savedKey.startsWith('AIza') && savedKey.length < 100) ? savedKey : '';
-                state.mode = parsed.mode || 'server';
-                state.serverEnabled = parsed.serverEnabled !== undefined ? parsed.serverEnabled : true;
-            }
-            
-            // API 키 복원
-            document.getElementById('apiKey').value = state.apiKey;
-            
-            // 모드 복원
-            document.querySelectorAll('.mode-btn').forEach(btn => {
-                btn.classList.toggle('active', btn.dataset.mode === state.mode);
-            });
-            
-            // 서버 모드 토글 복원
-            document.getElementById('serverModeToggle').checked = state.serverEnabled;
-            updateServerIndicator();
-        }
+  <!-- 탭 -->
+  <div class="tabs">
+    <button class="tab-btn active" id="tabPending" onclick="setTab('pending')">📋 미학습</button>
+    <button class="tab-btn" id="tabDone" onclick="setTab('done')">✅ 완료채널</button>
+  </div>
 
-        // 상태 저장
-        function saveState() {
-            localStorage.setItem(STORAGE_KEY, JSON.stringify({
-                learned: state.learned,
-                logs: state.logs,
-                apiKey: state.apiKey,
-                mode: state.mode,
-                serverEnabled: state.serverEnabled
-            }));
-        }
+  <div class="progress-bar"><div class="progress-fill" id="progFill" style="width:0%">0%</div></div>
+  <div class="channel-list" id="channelList"></div>
 
-        // 서버 인디케이터 업데이트
-        function updateServerIndicator() {
-            const indicator = document.getElementById('serverIndicator');
-            if (state.serverEnabled) {
-                indicator.classList.add('active');
-                indicator.innerHTML = '<span class="dot"></span><span>서버 연결됨</span>';
-            } else {
-                indicator.classList.remove('active');
-                indicator.innerHTML = '<span class="dot"></span><span>로컬 모드</span>';
-            }
-        }
+  <div class="log-box">
+    <h3>📋 학습 로그</h3>
+    <div id="logEntries"></div>
+  </div>
+</div>
 
-        // 모드 설정
-        function setMode(mode) {
-            state.mode = mode;
-            document.querySelectorAll('.mode-btn').forEach(btn => {
-                btn.classList.toggle('active', btn.dataset.mode === mode);
-            });
-            saveState();
-            addLog(`실행 모드: ${mode === 'server' ? '🌐 서버실행' : '💻 내컴실행'}`, 'info');
-        }
+<script>
+const LOCAL_SERVER = '';
+const STORAGE_KEY = 'sgr_v4';
 
-        // 서버 모드 토글
-        function toggleServerMode() {
-            state.serverEnabled = document.getElementById('serverModeToggle').checked;
-            updateServerIndicator();
-            saveState();
-            addLog(`서버학습: ${state.serverEnabled ? '활성화' : '비활성화'}`, state.serverEnabled ? 'success' : 'warning');
-        }
+// 기본 채널 (const → 초기값, 실제는 state.channels)
+const DEFAULT_CHANNELS = [
+  {id:1,name:"주식카페_주식단테사",desc:"단기장 매매 기법",channelId:"UCBPoQRmiTfeGKWRZFON8XAA"},
+  {id:2,name:"주식코주부_주식단테사",desc:"차트분석 단타 전략",channelId:"UCEThjMvSpp_e784LAXG_iAg"},
+  {id:3,name:"1분주식",desc:"1분 단타, 초단기 매매",channelId:"UCI9oLnJOXVgcvtvsmzl04gQ"},
+  {id:4,name:"주식몬스터",desc:"차트기본, 단타기법",channelId:"UCz-GpeRQbJs5djV0-L-ENQA"},
+  {id:5,name:"주식김사부",desc:"부자되는법, 단타기법",channelId:"UCBCZ4ho7wVjq2uLnxtCcYiw"},
+  {id:6,name:"주식바바",desc:"VA매매, 333기법",channelId:"UCA8-VnK7ZhdcXXg_Ayin-ug"},
+  {id:7,name:"주식박카스",desc:"ETF분석, 투자아이디어",channelId:"UCnD_fNScAjhwIEJvjIVmWdQ"},
+  {id:8,name:"주독",desc:"비트코인, 장기투자",channelId:"UCdnKljR85LaltNTQ_Ms7i9A"},
+  {id:9,name:"용사부",desc:"단타전략",channelId:"UC-jgYMsPz6NuDT9j9dmNODg"},
+  {id:10,name:"주식등대",desc:"차트분석, 투자기법",channelId:"UCM9c85H-8nFIcIP8PvqasZg"},
+  {id:11,name:"또사이선생",desc:"스텔스투자, 단테기법",channelId:"UCwiQ2wkrovoZmgUay7GcOiQ"},
+  {id:12,name:"또또사이선생",desc:"추가 채널",channelId:"UC-O5GlHmFZK6R6_8kpptZ3A"}
+];
 
-        // 채널 목록 렌더링
-        function renderChannels() {
-            const list = document.getElementById('channelList');
-            list.innerHTML = channels.map(ch => {
-                const isSelected = state.selected.includes(ch.id);
-                const isLearned = state.learned.includes(ch.id);
-                const isLearning = state.learning === ch.id;
-                const currentStep = isLearning ? state.currentStep : (isLearned ? 3 : -1);
-                
-                // 진행률 계산
-                let progressPercent = 0;
-                let statusText = '미학습';
-                let statusClass = '';
-                
-                if (isLearned) {
-                    progressPercent = 100;
-                    statusText = '완료';
-                    statusClass = 'done';
-                } else if (isLearning) {
-                    progressPercent = LEARNING_STEPS[currentStep]?.progress || 0;
-                    statusText = `${progressPercent}%`;
-                    statusClass = 'learning';
-                }
-                
-                let cardClass = 'channel-card';
-                if (isSelected) cardClass += ' selected';
-                if (isLearning) cardClass += ' learning';
-                if (isLearned) cardClass += ' done';
-                
-                // 스텝 인디케이터 HTML
-                const stepsHtml = LEARNING_STEPS.map((step, idx) => {
-                    let dotClass = 'step-dot';
-                    let labelClass = 'step-label';
-                    
-                    if (isLearned) {
-                        dotClass += ' done';
-                        labelClass += ' done';
-                    } else if (isLearning && idx <= currentStep) {
-                        dotClass += idx < currentStep ? ' done' : ' active';
-                        labelClass += idx < currentStep ? ' done' : ' active';
-                    }
-                    
-                    return `
-                        <div class="${labelClass}">${step.name}</div>
-                        <div class="${dotClass}"></div>
-                    `;
-                }).join('');
-                
-                // 학습 중 상태 텍스트
-                const learningStatusText = state.learningStatus || '';
+let state = {
+  channels: [],
+  selected: [],
+  learned: [],       // 채널 id 배열
+  vidCounts: {},     // {chId: {total, learned, shorts, video, live}}
+  learning: null,
+  learningStatus: '',
+  logs: [],
+  apiKey: '',
+  serverEnabled: true,
+  tab: 'pending',
+  typeFilter: {shorts: true, video: true, live: true},
+  nextId: 13
+};
 
-                return `
-                    <div class="${cardClass}" data-id="${ch.id}">
-                        <input type="checkbox" 
-                            id="ch_${ch.id}" 
-                            ${isSelected ? 'checked' : ''} 
-                            ${isLearned ? 'disabled' : ''}
-                            onchange="toggleChannel(${ch.id})"
-                        >
-                        <div class="channel-info">
-                            <div class="channel-name">${ch.name}</div>
-                            <div class="channel-desc">${isLearning ? `<span style="color:#4CAF50;font-size:11px;">⚙️ ${learningStatusText}</span>` : ch.desc}</div>
-                        </div>
-                        <div class="channel-progress">
-                            <div class="progress-header">
-                                <span>${isLearning ? learningStatusText : (isLearned ? '완료' : '대기')}</span>
-                                <span class="percent">${progressPercent}%</span>
-                            </div>
-                            <div class="mini-bar">
-                                <div class="mini-bar-fill" style="width: ${progressPercent}%"></div>
-                            </div>
-                        </div>
-                        <div class="channel-status ${statusClass}">${statusText}</div>
-                        ${isLearned ? `<button onclick="downloadTxt(${ch.id})" style="padding:5px 10px;background:#2196F3;border:none;border-radius:6px;color:#fff;cursor:pointer;font-size:12px;white-space:nowrap;">📥 txt</button>` : ''}
-                    </div>
-                `;
-            }).join('');
-            
-            updateStats();
-        }
+// ── 저장/로드 ──────────────────────────────────────
+function saveState() {
+  localStorage.setItem(STORAGE_KEY, JSON.stringify({
+    channels: state.channels,
+    learned: state.learned,
+    vidCounts: state.vidCounts,
+    logs: state.logs.slice(0, 80),
+    apiKey: state.apiKey,
+    serverEnabled: state.serverEnabled,
+    typeFilter: state.typeFilter,
+    nextId: state.nextId
+  }));
+}
 
-        // 채널 선택/해제
-        function toggleChannel(id) {
-            if (state.learned.includes(id)) return;
-            
-            const idx = state.selected.indexOf(id);
-            if (idx > -1) {
-                state.selected.splice(idx, 1);
-            } else {
-                state.selected.push(id);
-            }
-            renderChannels();
-            updateLearnButton();
-        }
+function loadState() {
+  const saved = localStorage.getItem(STORAGE_KEY);
+  if (saved) {
+    const p = JSON.parse(saved);
+    state.channels = p.channels || DEFAULT_CHANNELS;
+    state.learned = (p.learned || []).map(Number);
+    state.vidCounts = p.vidCounts || {};
+    state.logs = p.logs || [];
+    const k = p.apiKey || '';
+    state.apiKey = (k.startsWith('AIza') && k.length < 100) ? k : '';
+    state.serverEnabled = p.serverEnabled !== undefined ? p.serverEnabled : true;
+    state.typeFilter = p.typeFilter || {shorts:true, video:true, live:true};
+    state.nextId = p.nextId || 13;
+  } else {
+    state.channels = [...DEFAULT_CHANNELS];
+  }
+  document.getElementById('apiKey').value = state.apiKey;
+  document.getElementById('serverToggle').checked = state.serverEnabled;
+  document.getElementById('chkShorts').checked = state.typeFilter.shorts;
+  document.getElementById('chkVideo').checked = state.typeFilter.video;
+  document.getElementById('chkLive').checked = state.typeFilter.live;
+  updateTypeFilterUI();
+  updateServerLabel();
+}
 
-        // 전체 선택 (학습 안된 것만)
-        function selectAll() {
-            const unlearned = channels.filter(ch => !state.learned.includes(ch.id));
-            state.selected = unlearned.map(ch => ch.id);
-            renderChannels();
-            updateLearnButton();
-            addLog(`${unlearned.length}개 채널 선택됨`, 'info');
-        }
+// ── API 키 ─────────────────────────────────────────
+function clearApiKey() {
+  state.apiKey = '';
+  document.getElementById('apiKey').value = '';
+  saveState();
+  addLog('API 키 초기화됨', 'warning');
+}
 
-        // 전체 해제
-        function deselectAll() {
-            state.selected = [];
-            renderChannels();
-            updateLearnButton();
-        }
+// ── 서버 토글 ──────────────────────────────────────
+document.getElementById('serverToggle').addEventListener('change', () => {
+  state.serverEnabled = document.getElementById('serverToggle').checked;
+  updateServerLabel();
+  saveState();
+});
+function updateServerLabel() {
+  const on = state.serverEnabled;
+  document.getElementById('serverLabel').innerHTML =
+    `<span class="sdot ${on?'on':''}"></span>${on?'서버 연결됨':'로컬 모드'}`;
+}
 
-        // 학습 초기화
-        function resetLearning() {
-            if (!confirm('정말로 모든 학습 기록을 초기화하시겠습니까?')) return;
-            state.learned = [];
-            state.selected = [];
-            state.logs = [];
-            saveState();
-            renderChannels();
-            updateLearnButton();
-            document.getElementById('logEntries').innerHTML = '';
-            addLog('학습 기록이 초기화되었습니다', 'warning');
-        }
+// ── 타입 필터 ──────────────────────────────────────
+function updateTypeFilter() {
+  state.typeFilter.shorts = document.getElementById('chkShorts').checked;
+  state.typeFilter.video  = document.getElementById('chkVideo').checked;
+  state.typeFilter.live   = document.getElementById('chkLive').checked;
+  updateTypeFilterUI();
+  saveState();
+}
+function updateTypeFilterUI() {
+  ['Shorts','Video','Live'].forEach(t => {
+    const el = document.getElementById(`chk${t}Label`);
+    const chk = document.getElementById(`chk${t}`);
+    if (chk.checked) el.classList.add('active'); else el.classList.remove('active');
+  });
+}
 
-        // 학습 버튼 상태
-        function updateLearnButton() {
-            const btn = document.getElementById('learnBtn');
-            btn.disabled = state.selected.length === 0 || state.learning !== null;
-        }
+// ── 탭 ────────────────────────────────────────────
+function setTab(tab) {
+  state.tab = tab;
+  document.getElementById('tabPending').classList.toggle('active', tab==='pending');
+  document.getElementById('tabDone').classList.toggle('active', tab==='done');
+  renderChannels();
+}
 
-        // 통계 업데이트
-        function updateStats() {
-            const remaining = channels.length - state.learned.length;
-            document.getElementById('totalChannels').textContent = channels.length;
-            document.getElementById('selectedCount').textContent = state.selected.length;
-            document.getElementById('learnedCount').textContent = state.learned.length;
-            document.getElementById('remainingCount').textContent = remaining;
-            
-            const percent = Math.round((state.learned.length / channels.length) * 100);
-            document.getElementById('progressFill').style.width = percent + '%';
-            document.getElementById('progressFill').textContent = percent + '%';
-        }
+// ── 채널 추가/삭제 ─────────────────────────────────
+function addChannel() {
+  const name = document.getElementById('newName').value.trim();
+  const cid  = document.getElementById('newCid').value.trim();
+  const desc = document.getElementById('newDesc').value.trim();
+  if (!name || !cid) { addLog('채널명과 채널ID는 필수입니다', 'warning'); return; }
+  if (!cid.startsWith('UC')) { addLog('채널ID는 UC로 시작해야 합니다', 'warning'); return; }
+  const ch = {id: state.nextId++, name, desc: desc||'사용자 추가 채널', channelId: cid};
+  state.channels.push(ch);
+  saveState();
+  closeAddForm();
+  renderChannels();
+  addLog(`✅ ${name} 채널 추가됨`, 'success');
+}
+function deleteChannel(id) {
+  if (!confirm('채널을 삭제하시겠습니까?')) return;
+  state.channels = state.channels.filter(c => c.id !== id);
+  state.learned = state.learned.filter(i => i !== id);
+  state.selected = state.selected.filter(i => i !== id);
+  delete state.vidCounts[id];
+  localStorage.removeItem(`subtitles_ch_${id}`);
+  saveState();
+  renderChannels();
+  addLog('채널 삭제됨', 'warning');
+}
+function closeAddForm() {
+  document.getElementById('addForm').classList.remove('show');
+  document.getElementById('newName').value='';
+  document.getElementById('newCid').value='';
+  document.getElementById('newDesc').value='';
+}
 
-        // 로그 추가
-        function addLog(message, type = 'info') {
-            const now = new Date();
-            const time = now.toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
-            
-            state.logs.unshift({ time, message, type });
-            if (state.logs.length > 100) state.logs.pop();
-            
-            const container = document.getElementById('logEntries');
-            const entry = document.createElement('div');
-            entry.className = `log-entry ${type}`;
-            entry.innerHTML = `<span class="time">[${time}]</span> ${message}`;
-            container.insertBefore(entry, container.firstChild);
-            
-            saveState();
-        }
+// ── 렌더링 ─────────────────────────────────────────
+function renderChannels() {
+  const list = document.getElementById('channelList');
+  const showLearned = state.tab === 'done';
+  const filtered = state.channels.filter(ch =>
+    showLearned ? state.learned.includes(ch.id) : !state.learned.includes(ch.id)
+  );
 
-        // 렌더 서버 주소 (같은 서버에서 서빙되므로 그냥 빈 문자열)
-        const LOCAL_SERVER = '';
+  list.innerHTML = filtered.map(ch => {
+    const isSelected = state.selected.includes(ch.id);
+    const isLearned  = state.learned.includes(ch.id);
+    const isLearning = state.learning === ch.id;
+    const vc = state.vidCounts[ch.id] || {};
+    const total   = vc.total || 0;
+    const learned = vc.learned || 0;
+    const pct = total > 0 ? Math.round(learned/total*100) : (isLearned ? 100 : 0);
 
-        // 로컬 서버 연결 확인
-        async function checkLocalServer() {
-            try {
-                const res = await fetch(`${LOCAL_SERVER}/ping`, { signal: AbortSignal.timeout(2000) });
-                const data = await res.json();
-                return data.status === 'ok';
-            } catch { return false; }
-        }
+    let cardClass = 'channel-card';
+    if (isSelected) cardClass += ' selected';
+    if (isLearning) cardClass += ' learning';
+    if (isLearned)  cardClass += ' done-card';
 
-        // 자막 추출 (yt-dlp)
-        async function fetchSubtitle(videoId, title) {
-            try {
-                const res = await fetch(`${LOCAL_SERVER}/subtitle?videoId=${videoId}`, { signal: AbortSignal.timeout(90000) });
-                const data = await res.json();
-                if (data.success) {
-                    addLog(`  📝 자막: ${title.substring(0,25)}`, 'success');
-                    return data.text;
-                } else {
-                    addLog(`  ⚠️ 자막없음: ${title.substring(0,25)} (${data.error})`, 'warning');
-                    return null;
-                }
-            } catch (e) {
-                addLog(`  ❌ 자막오류: ${e.message}`, 'error');
-                return null;
-            }
-        }
+    const badge = isLearning
+      ? `<span class="ch-badge learning">⚙️ ${state.learningStatus}</span>`
+      : isLearned ? `<span class="ch-badge done">✅ 완료</span>` : '';
 
-        // YouTube API로 영상 목록 가져오기 (로컬서버 경유)
-        async function fetchChannelVideos(channelId) {
-            const apiKey = document.getElementById('apiKey').value;
-            if (!apiKey) {
-                addLog(`⚠️ API 키 없음`, 'warning');
-                return [];
-            }
-            addLog(`🌐 영상 목록 가져오는 중...`, 'loading');
-            try {
-                const res = await fetch(`${LOCAL_SERVER}/videos?channelId=${channelId}&apiKey=${apiKey}`);
-                const data = await res.json();
-                if (data.error) {
-                    addLog(`❌ 영상목록 오류: ${data.error}`, 'error');
-                    return [];
-                }
-                addLog(`✅ 영상 ${data.videos.length}개 발견`, 'success');
-                return data.videos;
-            } catch (e) {
-                addLog(`❌ 서버 연결 실패: server.py 실행했는지 확인!`, 'error');
-                return [];
-            }
-        }
+    const counts = total > 0 ? `
+      <div class="ch-counts">
+        <span>📹 동영상 ${vc.video||0}</span>
+        <span>🩳 쇼츠 ${vc.shorts||0}</span>
+        <span>🔴 라이브 ${vc.live||0}</span>
+        <span style="color:#ff4444;">학습 ${learned}/${total}</span>
+      </div>` : '';
 
-        // 모달 텍스트 안전하게 업데이트
-        function setModalText(id, text) {
-            const el = document.getElementById(id);
-            if (el) el.textContent = text;
-        }
+    const dlBtn = isLearned
+      ? `<button class="ch-act ch-act-dl" onclick="downloadTxt(${ch.id})">📥 txt</button>` : '';
+    const delBtn = !isLearning
+      ? `<button class="ch-act ch-act-del" onclick="deleteChannel(${ch.id})">✕</button>` : '';
 
-        // 채널 학습
-        async function learnChannel(channel) {
-            addLog(`━━━━━━━━━━━━━━━━━━━━━━━━━━━`, 'info');
-            addLog(`${channel.name} 학습 시작`, 'loading');
+    return `
+      <div class="${cardClass}">
+        <input type="checkbox" ${isSelected?'checked':''} ${isLearned||isLearning?'disabled':''} onchange="toggleChannel(${ch.id})">
+        <div class="ch-info">
+          <div class="ch-name">${ch.name}${badge}</div>
+          <div class="ch-sub">${ch.desc}</div>
+          ${counts}
+        </div>
+        <div class="mini-prog">
+          <div class="mini-prog-hd"><span>${isLearning?state.learningStatus:'진행률'}</span><span style="color:#ff4444">${pct}%</span></div>
+          <div class="mini-bar"><div class="mini-bar-fill" style="width:${pct}%"></div></div>
+        </div>
+        <div class="ch-acts">${dlBtn}${delBtn}</div>
+      </div>`;
+  }).join('');
 
-            try {
-                // 1단계: 영상 목록
-                state.currentStep = 0;
-                state.learningStatus = '영상 목록 가져오는 중...';
-                renderChannels();
+  updateStats();
+  updateLearnBtn();
+}
 
-                const videos = await fetchChannelVideos(channel.channelId);
-                if (!videos || videos.length === 0) {
-                    addLog(`❌ 영상 없음 또는 API 오류`, 'error');
-                    state.learning = null;
-                    state.currentStep = 0;
-                    state.learningStatus = '';
-                    renderChannels();
-                    return false;
-                }
+// ── 선택 ───────────────────────────────────────────
+function toggleChannel(id) {
+  id = Number(id);
+  const idx = state.selected.indexOf(id);
+  if (idx > -1) state.selected.splice(idx,1); else state.selected.push(id);
+  renderChannels();
+}
+function selectAll() {
+  state.selected = state.channels.filter(c => !state.learned.includes(c.id)).map(c=>c.id);
+  renderChannels();
+}
+function deselectAll() { state.selected=[]; renderChannels(); }
 
-                // 2단계: 영상별 자막 추출
-                state.currentStep = 1;
-                addLog(`📹 총 ${videos.length}개 영상 자막 추출 시작`, 'info');
+// ── 통계 ───────────────────────────────────────────
+function updateStats() {
+  let totalVid=0, learnedVid=0;
+  state.channels.forEach(ch => {
+    const vc = state.vidCounts[ch.id]||{};
+    totalVid += vc.total||0;
+    learnedVid += vc.learned||0;
+  });
+  const pct = state.channels.length > 0 ? Math.round(state.learned.length/state.channels.length*100) : 0;
+  document.getElementById('sTotalCh').textContent   = state.channels.length;
+  document.getElementById('sLearned').textContent   = state.learned.length;
+  document.getElementById('sTotalVid').textContent  = totalVid;
+  document.getElementById('sLearnedVid').textContent= learnedVid;
+  document.getElementById('sSelected').textContent  = state.selected.length;
+  document.getElementById('progFill').style.width   = pct+'%';
+  document.getElementById('progFill').textContent   = pct+'%';
+}
+function updateLearnBtn() {
+  document.getElementById('learnBtn').disabled = state.selected.length===0 || state.learning!==null;
+  document.getElementById('autoBtn').disabled  = state.learning!==null;
+}
 
-                const subtitles = {};
-                for (let i = 0; i < videos.length; i++) {
-                    const v = videos[i];
-                    state.learningStatus = `자막 추출 중 ${i + 1}/${videos.length}`;
-                    renderChannels();
-                    const text = await fetchSubtitle(v.videoId, v.title);
-                    if (text) subtitles[v.videoId] = { title: v.title, text };
-                }
+// ── 로그 ───────────────────────────────────────────
+function addLog(msg, type='info') {
+  const t = new Date().toLocaleTimeString('ko-KR',{hour:'2-digit',minute:'2-digit',second:'2-digit'});
+  state.logs.unshift({t, msg, type});
+  if (state.logs.length>80) state.logs.pop();
+  const container = document.getElementById('logEntries');
+  const el = document.createElement('div');
+  el.className = `log-entry ${type}`;
+  el.innerHTML = `<span class="t">[${t}]</span>${msg}`;
+  container.insertBefore(el, container.firstChild);
+  saveState();
+}
 
-                // 3단계: 저장
-                state.currentStep = 2;
-                state.learningStatus = '저장 중...';
-                renderChannels();
+// ── YouTube API - 영상 목록 ────────────────────────
+async function fetchVideos(channelId) {
+  const apiKey = document.getElementById('apiKey').value.trim();
+  if (!apiKey) { addLog('API 키 없음', 'warning'); return []; }
+  try {
+    const res = await fetch(`${LOCAL_SERVER}/videos?channelId=${channelId}&apiKey=${apiKey}`);
+    const data = await res.json();
+    if (data.error) { addLog(`❌ ${data.error}`, 'error'); return []; }
+    return data.videos || [];
+  } catch(e) {
+    addLog(`❌ 서버 연결 실패: ${e.message}`, 'error');
+    return [];
+  }
+}
 
-                const successCount = Object.keys(subtitles).length;
-                addLog(`💾 자막 ${successCount}/${videos.length}개 추출 완료`, successCount > 0 ? 'success' : 'warning');
+// 영상 타입 판별 (쇼츠: 60초 이하 or #Shorts, 라이브: liveBroadcastContent)
+function classifyVideo(v) {
+  if (v.liveBroadcastContent === 'live' || v.liveBroadcastContent === 'completed') return 'live';
+  if (v.duration && v.duration <= 60) return 'shorts';
+  if (v.title && v.title.toLowerCase().includes('#shorts')) return 'shorts';
+  return 'video';
+}
 
-                localStorage.setItem(`subtitles_ch_${channel.id}`, JSON.stringify(subtitles));
+// ── 자막 추출 ─────────────────────────────────────
+async function fetchSubtitle(videoId, title) {
+  try {
+    const res = await fetch(`${LOCAL_SERVER}/subtitle?videoId=${videoId}`, {signal: AbortSignal.timeout(90000)});
+    const data = await res.json();
+    if (data.success) {
+      addLog(`  📝 ${title.substring(0,22)}`, 'success');
+      return data.text;
+    } else {
+      addLog(`  ⚠️ 자막없음: ${title.substring(0,22)}`, 'warning');
+      return null;
+    }
+  } catch(e) {
+    addLog(`  ❌ ${e.message}`, 'error');
+    return null;
+  }
+}
 
-                // 완료
-                state.currentStep = 3;
-                state.learned.push(channel.id);
-                state.learning = null;
-                state.currentStep = 0;
-                state.learningStatus = '';
-                saveState();
+// ── 채널 학습 ─────────────────────────────────────
+async function learnChannel(ch) {
+  addLog(`━━━━━━━━━━━━━━━━━━━━━━━━━━━`, 'info');
+  addLog(`${ch.name} 학습 시작`, 'loading');
+  try {
+    // 1. 영상 목록
+    state.learningStatus = '영상 목록 수집중...';
+    renderChannels();
+    const videos = await fetchVideos(ch.channelId);
+    if (!videos.length) {
+      addLog('❌ 영상 없음 또는 API 오류', 'error');
+      return false;
+    }
 
-                addLog(`✅ ${channel.name} 학습 완료! (${successCount}개 자막)`, 'success');
-                renderChannels();
-                return true;
+    // 2. 타입 분류
+    const classified = videos.map(v => ({...v, type: classifyVideo(v)}));
+    const shorts = classified.filter(v=>v.type==='shorts');
+    const vids   = classified.filter(v=>v.type==='video');
+    const lives  = classified.filter(v=>v.type==='live');
 
-            } catch (error) {
-                addLog(`❌ ${channel.name} 실패: ${error.message}`, 'error');
-                state.learning = null;
-                state.currentStep = 0;
-                state.learningStatus = '';
-                renderChannels();
-                return false;
-            }
-        }
+    // 선택된 타입만 학습 (쇼츠 우선)
+    const toLearn = [
+      ...(state.typeFilter.shorts ? shorts : []),
+      ...(state.typeFilter.video  ? vids   : []),
+      ...(state.typeFilter.live   ? lives  : [])
+    ];
 
-        // 학습 시작
-        async function startLearning() {
-            if (state.selected.length === 0) return;
-            state.apiKey = document.getElementById('apiKey').value.trim();
-            saveState();
+    // 카운트 저장
+    state.vidCounts[ch.id] = {
+      total: toLearn.length,
+      learned: 0,
+      shorts: shorts.length,
+      video: vids.length,
+      live: lives.length
+    };
+    addLog(`📹 쇼츠 ${shorts.length} / 동영상 ${vids.length} / 라이브 ${lives.length} → 학습대상 ${toLearn.length}개`, 'info');
 
-            const channelsToLearn = state.selected.filter(id => !state.learned.includes(id));
-            const total = channelsToLearn.length;
-            addLog(`▶ 학습 시작: ${total}개 채널`, 'info');
+    // 3. 자막 추출
+    const subtitles = {};
+    for (let i=0; i<toLearn.length; i++) {
+      const v = toLearn[i];
+      state.learningStatus = `자막추출 ${i+1}/${toLearn.length}`;
+      state.vidCounts[ch.id].learned = i;
+      renderChannels();
+      const text = await fetchSubtitle(v.videoId, v.title);
+      if (text) subtitles[v.videoId] = {title: v.title, type: v.type, text};
+    }
 
-            for (let i = 0; i < channelsToLearn.length; i++) {
-                const chId = channelsToLearn[i];
-                const channel = channels.find(c => c.id === chId);
-                if (!channel) continue;
+    // 4. 저장
+    state.vidCounts[ch.id].learned = Object.keys(subtitles).length;
+    localStorage.setItem(`subtitles_ch_${ch.id}`, JSON.stringify(subtitles));
 
-                state.learning = chId;
-                state.currentStep = 0;
-                renderChannels();
-                updateLearnButton();
+    const ok = Object.keys(subtitles).length;
+    addLog(`💾 ${ok}/${toLearn.length}개 자막 저장`, ok>0?'success':'warning');
 
-                addLog(`[${i+1}/${total}] ${channel.name} 시작`, 'loading');
-                await learnChannel(channel);
-                await sleep(300);
-            }
+    // 완료
+    state.learned.push(ch.id);
+    state.learning = null;
+    state.learningStatus = '';
+    saveState();
+    addLog(`✅ ${ch.name} 완료!`, 'success');
+    renderChannels();
 
-            state.selected = [];
-            renderChannels();
-            updateLearnButton();
-            addLog(`🎉 전체 학습 완료! (${state.learned.length}개 채널)`, 'success');
-        }
+    // 자동 다운로드
+    await sleep(300);
+    downloadTxt(ch.id);
+    return true;
 
-        // txt 다운로드
-        function downloadTxt(channelId) {
-            const channel = channels.find(c => c.id === channelId);
-            const data = localStorage.getItem(`subtitles_ch_${channelId}`);
-            if (!data) { addLog('저장된 자막 없음', 'warning'); return; }
-            const subtitles = JSON.parse(data);
-            let content = `=== ${channel.name} 자막 모음 ===\n추출일: ${new Date().toLocaleString('ko-KR')}\n\n`;
-            for (const [videoId, info] of Object.entries(subtitles)) {
-                content += `\n▶ ${info.title}\nhttps://youtu.be/${videoId}\n${'─'.repeat(40)}\n${info.text}\n\n`;
-            }
-            const blob = new Blob([content], { type: 'text/plain;charset=utf-8' });
-            const a = document.createElement('a');
-            a.href = URL.createObjectURL(blob);
-            a.download = `${channel.name}_자막.txt`;
-            a.click();
-            addLog(`📥 ${channel.name} txt 다운로드됨`, 'success');
-        }
+  } catch(e) {
+    addLog(`❌ ${ch.name} 실패: ${e.message}`, 'error');
+    state.learning = null;
+    state.learningStatus = '';
+    renderChannels();
+    return false;
+  }
+}
 
-        // 유틸리티
-        function sleep(ms) {
-            return new Promise(resolve => setTimeout(resolve, ms));
-        }
+// ── 학습 시작 ─────────────────────────────────────
+async function startLearning(ids) {
+  const toLearn = (ids || state.selected.map(Number)).filter(id => !state.learned.includes(id));
+  if (!toLearn.length) { addLog('학습할 채널 없음', 'warning'); return; }
+  state.apiKey = document.getElementById('apiKey').value.trim();
+  saveState();
+  addLog(`▶ 총 ${toLearn.length}개 채널 학습 시작`, 'info');
 
-        // 초기화
-        function init() {
-            loadState();
-            renderChannels();
-            
-            // 기존 로그 표시
-            state.logs.forEach(log => {
-                const container = document.getElementById('logEntries');
-                const entry = document.createElement('div');
-                entry.className = `log-entry ${log.type}`;
-                entry.innerHTML = `<span class="time">[${log.time}]</span> ${log.message}`;
-                container.appendChild(entry);
-            });
-            
-            // 버튼 이벤트
-            document.getElementById('learnBtn').addEventListener('click', startLearning);
-            document.getElementById('selectAllBtn').addEventListener('click', selectAll);
-            document.getElementById('deselectAllBtn').addEventListener('click', deselectAll);
-            document.getElementById('resetBtn').addEventListener('click', resetLearning);
-            
-            // API 키 입력 이벤트
-            document.getElementById('apiKey').addEventListener('change', () => {
-                state.apiKey = document.getElementById('apiKey').value;
-                saveState();
-                addLog('API 키가 저장되었습니다', 'info');
-            });
-            
-            // 서버 모드 토글 이벤트
-            document.getElementById('serverModeToggle').addEventListener('change', toggleServerMode);
-            
-            updateLearnButton();
-            addLog('주식구독러너 초기화 완료', 'success');
-            addLog(`실행 모드: ${state.mode === 'server' ? '🌐 서버실행' : '💻 내컴실행'}`, 'info');
-            addLog(`서버학습: ${state.serverEnabled ? '활성화됨' : '비활성화됨'}`, state.serverEnabled ? 'success' : 'warning');
-        }
+  for (let i=0; i<toLearn.length; i++) {
+    const ch = state.channels.find(c=>c.id===toLearn[i]);
+    if (!ch) continue;
+    state.learning = ch.id;
+    renderChannels();
+    updateLearnBtn();
+    addLog(`[${i+1}/${toLearn.length}] ${ch.name}`, 'loading');
+    await learnChannel(ch);
+    await sleep(400);
+  }
 
-        init();
-    </script>
+  state.selected = [];
+  state.learning = null;
+  renderChannels();
+  updateLearnBtn();
+  addLog(`🎉 전체 완료! (${state.learned.length}개 채널)`, 'success');
+}
+
+// 자동학습: 미학습 전체
+function autoLearn() {
+  const ids = state.channels.filter(c=>!state.learned.includes(c.id)).map(c=>c.id);
+  if (!ids.length) { addLog('학습할 채널 없음', 'warning'); return; }
+  addLog(`⚡ 자동학습: ${ids.length}개 채널`, 'info');
+  startLearning(ids);
+}
+
+// ── txt 다운로드 ───────────────────────────────────
+function downloadTxt(chId) {
+  chId = Number(chId);
+  const ch = state.channels.find(c=>c.id===chId);
+  const raw = localStorage.getItem(`subtitles_ch_${chId}`);
+  if (!raw) { addLog('저장된 자막 없음', 'warning'); return; }
+  const subs = JSON.parse(raw);
+  const typeEmoji = {shorts:'🩳', video:'🎬', live:'🔴'};
+  let content = `=== ${ch.name} 자막 모음 ===\n추출일: ${new Date().toLocaleString('ko-KR')}\n총 ${Object.keys(subs).length}개 영상\n\n`;
+  // 쇼츠 → 동영상 → 라이브 순서
+  ['shorts','video','live'].forEach(type => {
+    const items = Object.entries(subs).filter(([,v])=>v.type===type);
+    if (!items.length) return;
+    content += `\n${'═'.repeat(50)}\n${typeEmoji[type]} ${type.toUpperCase()} (${items.length}개)\n${'═'.repeat(50)}\n`;
+    items.forEach(([vid, info]) => {
+      content += `\n▶ ${info.title}\nhttps://youtu.be/${vid}\n${'─'.repeat(40)}\n${info.text}\n`;
+    });
+  });
+  const blob = new Blob([content], {type:'text/plain;charset=utf-8'});
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = `${ch.name}_자막.txt`;
+  a.click();
+  addLog(`📥 ${ch.name} 다운로드됨`, 'success');
+}
+
+// ── 초기화 ────────────────────────────────────────
+function resetAll() {
+  if (!confirm('모든 학습 기록을 초기화하시겠습니까?')) return;
+  state.learned = [];
+  state.selected = [];
+  state.vidCounts = {};
+  state.logs = [];
+  saveState();
+  renderChannels();
+  document.getElementById('logEntries').innerHTML = '';
+  addLog('초기화 완료', 'warning');
+}
+
+function sleep(ms) { return new Promise(r=>setTimeout(r,ms)); }
+
+// ── 이벤트 ────────────────────────────────────────
+document.getElementById('learnBtn').addEventListener('click', () => startLearning());
+document.getElementById('autoBtn').addEventListener('click', autoLearn);
+document.getElementById('selAllBtn').addEventListener('click', selectAll);
+document.getElementById('deselAllBtn').addEventListener('click', deselectAll);
+document.getElementById('resetBtn').addEventListener('click', resetAll);
+document.getElementById('addBtn').addEventListener('click', () => {
+  document.getElementById('addForm').classList.toggle('show');
+});
+document.getElementById('apiKey').addEventListener('change', () => {
+  state.apiKey = document.getElementById('apiKey').value.trim();
+  saveState();
+  addLog('API 키 저장됨', 'info');
+});
+
+// ── 초기 실행 ─────────────────────────────────────
+loadState();
+// 로그 복원
+state.logs.forEach(log => {
+  const el = document.createElement('div');
+  el.className = `log-entry ${log.type}`;
+  el.innerHTML = `<span class="t">[${log.t}]</span>${log.msg}`;
+  document.getElementById('logEntries').appendChild(el);
+});
+renderChannels();
+addLog('주식구독러너 시작', 'success');
+</script>
 </body>
 </html>
